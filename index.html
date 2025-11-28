@@ -230,7 +230,10 @@
 </div>
 
 <!-- Audio element -->
-<audio id="startSound" src="2025-11-09_Soundeffekt_Der_stille_Riese.mp3" preload="auto"></audio>
+<!-- NEU: Audio nun in Dauerschleife -->
+<audio id="startSound" src="2025-11-09_Soundeffekt_Der_stille_Riese.mp3" preload="auto" loop></audio>
+<!-- /NEU -->
+
 
 <script>
 /* ---------- Elements & State ---------- */
@@ -400,7 +403,40 @@ chatForm.addEventListener('submit', (e) => {
 
     handleInput(raw.toUpperCase());
 });
+<!-- NEU: Fuzzy Matching Funktion -->
+function similarity(a, b) {
+    let longer = a.length > b.length ? a : b;
+    let shorter = a.length > b.length ? b : a;
 
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+
+    const editDist = levenshtein(longer, shorter);
+    return (longerLength - editDist) / longerLength;
+}
+
+function levenshtein(a, b) {
+    const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + (a[j - 1] === b[i - 1] ? 0 : 1)
+            );
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+    <!-- /NEU -->
+
+    
 /* ---------- Core game input handling ---------- */
 function handleInput(input) {
     if (gameState === 'WAIT_START') {
@@ -420,11 +456,42 @@ function handleInput(input) {
             return;
         }
 
-        // Accept several variations
-        const normalized = input.replace(/\s+/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-        const correctVariants = ['ZECHEERIN','ZECHERIN','ZECHE ERIN','ZECHE ERIN','ZECH E RIN'.replace(/\s+/g,'')];
+        <!-- NEU: Verbesserte Erkennung + Fuzzy Matching -->
+const normalized = input
+    .replace(/\s+/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
 
-        if (normalized.includes('ZECH') && normalized.includes('ERIN') || normalized === 'ZECHEERIN' || normalized === 'ZECHEERIN'.toUpperCase()) {
+const solutions = [
+    "ZECHEERIN",
+    "ERIN",
+    "FOERDERTURMERIN",
+    "ERINERFOERDERTURM",
+    "ERINERZECHE"
+];
+
+// Prüfen, ob eine Lösung zu mindestens 80% passt
+let isCorrect = false;
+for (const sol of solutions) {
+    if (similarity(normalized, sol) >= 0.8) {
+        isCorrect = true;
+        break;
+    }
+}
+
+if (isCorrect) {
+    stopTimer();
+    botReply(`Ganz genau! 🎉<br>
+        Der Geist der Zeche Erin wacht noch immer über Castrop!<br><br>
+        So ähnlich läuft’s auch in unseren Outdoor Escape Games:<br>
+        Du entdeckst spannende Orte in Castrop-Rauxel und löst dabei Rätsel mit mir – dem Rätsel-Bot! 🤖🗺️<br><br>
+        👉 Neugierig? Dann schau vorbei auf <a href="https://www.escapegame-castrop-rauxel.de/" target="_blank">escapegame-castrop-rauxel.de</a>`)
+    .then(()=> { gameState = 'FINISHED'; });
+    return;
+}
+<!-- /NEU -->
+
             // correct
             stopTimer();
             botReply(`Ganz genau! 🎉<br>
@@ -458,5 +525,6 @@ updateCountdown();
 </script>
 </body>
 </html>
+
 
 
